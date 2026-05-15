@@ -7,7 +7,8 @@ import os, json, struct, zlib, math, threading, random
 from datetime import datetime
 
 SNAP_DIR = "outputs"
-os.makedirs(SNAP_DIR, exist_ok=True)
+SNAP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "outputs")
+SNAP_DIR = os.path.normpath(SNAP_DIR)
 
 
 # ── Pure-Python PNG generator ─────────────────────────────────────────────────
