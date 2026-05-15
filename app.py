@@ -185,6 +185,11 @@ def serve_snapshot(key):
     mime = header.split(":")[1].split(";")[0]
     return Response(img_bytes, mimetype=mime)
 
+@app.route("/api/stats")
+def api_stats():
+    stats = logger.get_stats()
+    stats["snapshots"] = len(snapshot_meta) + len(camera.list_snapshots())
+    return jsonify(stats) 
 @app.route("/api/recent-events")
 def api_recent():    return jsonify(logger.get_recent(40))
 
