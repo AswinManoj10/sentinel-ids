@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SENTINEL IDS — Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.page { max-width:1480px; margin:0 auto; padding:1.5rem 1.75rem 6rem; }
+
+/* ── Tab bar ── */
+.tab-bar {
+  display:flex; gap:3px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:13px; padding:4px;
+  width:fit-content; margin-bottom:1.5rem;
+}
+.tab {
+  font-family:var(--font); font-size:0.75rem; font-weight:600;
+  padding:0.45rem 1.15rem; border-radius:10px;
+  border:none; cursor:pointer; background:transparent; color:var(--w3);
+  transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+.tab:hover { color:var(--w1); }
+.tab.on {
+  background:linear-gradient(135deg,var(--g3),var(--g2));
+  color:var(--w1); box-shadow:0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* ── Panes ── */
+.pane { display:none; }
+.pane.on { display:block; }
+
+/* ── Stat strip ── */
+.stat-strip {
+  display:grid; grid-template-columns:repeat(6,1fr);
+  gap:1px; background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:var(--r3); overflow:hidden;
+  margin-bottom:1.4rem;
+}
+@media(max-width:900px){.stat-strip{grid-template-columns:repeat(3,1fr);}}
+.stat-cell {
+  background:var(--g1); padding:1.1rem 1.2rem;
+  position:relative; overflow:hidden; cursor:default;
+  transition:background 0.2s ease;
+}
+.stat-cell:hover { background:var(--g2); }
+.stat-cell::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+  background:var(--gr-rose); transform:scaleX(0); transform-origin:left;
+  transition:transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+.stat-cell:hover::after { transform:scaleX(1); }
+.stat-num {
+  font-size:2.2rem; font-weight:800; letter-spacing:-0.04em;
+  line-height:1; font-variant-numeric:tabular-nums;
+  transition:all 0.3s ease;
+}
+.stat-label { font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:0.35rem; }
+
+/* ── Grids ── */
+.g-main { display:grid; grid-template-columns:1fr 340px; gap:1.25rem; margin-bottom:1.25rem; }
+.g2     { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+@media(max-width:1100px){.g-main{grid-template-columns:1fr;}}
+@media(max-width:900px){.g2{grid-template-columns:1fr;}}
+
+/* ── Chart wrapper ── */
+.ch-200 { position:relative; height:200px; }
+.ch-180 { position:relative; height:180px; }
+.ch-160 { position:relative; height:160px; }
+
+/* ── Event feed ── */
+.feed-scroll { max-height:320px; overflow-y:auto; }
+.feed-row {
+  display:grid;
+  grid-template-columns:56px 90px 1fr 72px 72px 48px;
+  gap:0.4rem; align-items:center;
+  padding:0.6rem 1rem;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  font-family:var(--mono); font-size:0.68rem; color:var(--w2);
+  transition:background 0.12s ease;
+  animation:slideIn 0.3s ease;
+}
+.feed-row:last-child { border-bottom:none; }
+.feed-row:hover { background:rgba(255,45,85,0.04); }
+
+/* ── Threat bars ── */
+.tbar { display:flex;align-items:center;gap:0.7rem;margin-bottom:0.7rem; }
+.tbar-label { font-size:0.64rem;font-weight:700;width:68px;flex-shrink:0; }
+.tbar-track { flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden; }
+.tbar-fill  { height:4px;border-radius:2px;transition:width 1.8s cubic-bezier(0.4,0,0.2,1);width:0%; }
+.tbar-count { font-size:0.62rem;color:var(--w4);width:22px;text-align:right; }
+
+/* ── Origin list ── */
+.orig-row {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.48rem 0;border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.orig-row:last-child { border-bottom:none; }
+.orig-name { font-size:0.7rem;color:var(--w2); }
+.orig-pill { font-family:var(--mono);font-size:0.62rem;font-weight:700;
+             padding:0.15rem 0.55rem;background:var(--rg1);color:var(--red);
+             border:1px solid var(--rb);border-radius:100px; }
+
+/* ══════════════ DEMO TAB ══════════════ */
+.demo-layout { display:grid; grid-template-columns:390px 1fr; gap:1.5rem; align-items:start; }
+@media(max-width:1050px){.demo-layout{grid-template-columns:1fr;}}
+
+.demo-card {
+  background:var(--g1);
+  backdrop-filter:var(--blur-lg);-webkit-backdrop-filter:var(--blur-lg);
+  border:1px solid var(--gb);border-radius:var(--r3);
+  position:relative;overflow:visible;
+}
+
+.f-label { display:block;font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:0.48rem; }
+.f-input {
+  width:100%;background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.10);border-radius:var(--r);
+  padding:0.8rem 1rem;font-family:var(--font);font-size:0.88rem;color:var(--w1);
+  outline:none;transition:all 0.2s ease;margin-bottom:1.05rem;
+}
+.f-input::placeholder { color:var(--w4); }
+.f-input:focus { border-color:rgba(255,45,85,0.55);background:rgba(255,45,85,0.05);box-shadow:0 0 0 3px rgba(255,45,85,0.10); }
+.f-input:disabled { opacity:0.3;cursor:not-allowed; }
+
+/* Attempt dots */
+.att-wrap { display:flex;align-items:center;gap:0.55rem;margin-bottom:1.15rem; }
+.att-dot  { width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.18);transition:all 0.35s cubic-bezier(0.4,0,0.2,1); }
+.att-dot.fail { background:var(--red);border-color:var(--red);box-shadow:0 0 12px rgba(255,45,85,0.7); }
+.att-dot.ok   { background:var(--green);border-color:var(--green); }
+
+/* Result pill */
+.demo-res { padding:0.8rem 1rem;border-radius:var(--r);margin-bottom:0.9rem;display:none;font-size:0.78rem;font-weight:500;animation:fadeIn 0.3s ease; }
+.demo-res.on { display:block; }
+.demo-res.ok  { background:var(--gg1);border:1px solid var(--gb1);color:var(--green); }
+.demo-res.bad { background:var(--rg1);border:1px solid var(--rb);color:var(--red); }
+
+/* Cred box */
+.cred-box {
+  background:linear-gradient(135deg,rgba(255,45,85,0.08),rgba(255,45,85,0.04));
+  border:1px solid rgba(255,45,85,0.22);border-radius:var(--r);
+  padding:0.9rem 1rem;margin-bottom:1.1rem;
+}
+.cred-row { display:flex;justify-content:space-between;align-items:center;padding:0.22rem 0; }
+.cred-k   { font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--red); }
+.cred-v   { font-family:var(--mono);font-size:0.76rem;color:var(--w1);font-weight:600; }
+.cred-sep { height:1px;background:rgba(255,45,85,0.18);margin:0.55rem 0; }
+
+/* Lock overlay */
+.lock-overlay {
+  display:none;position:absolute;inset:0;
+  background:rgba(3,5,8,0.90);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-radius:var(--r3);
+  align-items:center;justify-content:center;flex-direction:column;
+  gap:1rem;z-index:30;
+}
+.lock-overlay.on { display:flex; }
+.lock-emoji { font-size:4rem;animation:lockPulse 2.2s ease infinite; }
+@keyframes lockPulse { 0%,100%{transform:scale(1)}50%{transform:scale(1.08)} }
+.lock-title { font-size:1.3rem;font-weight:800;color:var(--red); }
+.lock-sub   { font-size:0.76rem;color:var(--w3);text-align:center;max-width:210px;line-height:1.65; }
+
+/* Capture area */
+.cap-empty {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:190px;background:var(--g0);border-radius:var(--r2);
+  border:1.5px dashed rgba(255,255,255,0.10);
+  font-size:0.8rem;color:var(--w4);gap:0.5rem;
+}
+.cap-frame { position:relative;border-radius:var(--r2);overflow:hidden;border:1px solid rgba(255,45,85,0.35); }
+.cap-frame img { width:100%;display:block;max-height:240px;object-fit:cover; }
+.cap-badge {
+  position:absolute;top:0.6rem;left:0.6rem;
+  font-family:var(--mono);font-size:0.55rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+  padding:0.22rem 0.7rem;border-radius:100px;
+  background:rgba(255,45,85,0.93);color:#fff;
+  animation:fadeIn 0.5s ease;
+}
+.cap-meta { margin-top:0.6rem;font-size:0.65rem;color:var(--red);font-weight:600; }
+
+/* ML readout grid */
+.ml-grid { display:grid;grid-template-columns:1fr 1fr;gap:0.75rem; }
+.ml-cell { background:var(--g0);border:1px solid rgba(255,255,255,0.05);border-radius:var(--r);padding:0.8rem 0.95rem; }
+.ml-key  { font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:0.35rem; }
+.ml-val  { font-size:0.9rem;font-weight:700; }
+
+/* Attempt history */
+.hist-row { display:flex;align-items:center;gap:0.7rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.04); }
+.hist-row:last-child { border-bottom:none; }
+</style>
+</head>
+<body>
+<!-- Liquid background -->
+<div class="lbg">
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="orb orb-c"></div>
+  <div class="orb orb-d"></div>
+</div>
+<div class="grid-ov"></div>
+<div class="noise-ov"></div>
+
+<!-- Navbar -->
+<nav class="navbar ui">
+  <a href="/" class="nav-brand">
+    <div class="nav-icon">🛡</div>
+    <span class="nav-title">SENTINEL<small>IDS v4</small></span>
+  </a>
+  <div class="nav-pills">
+    <button class="npill active" id="np-overview" onclick="switchTab('overview',this)">Overview</button>
+    <button class="npill" id="np-intruders" onclick="switchTab('intruders',this)">Intruders</button>
+    <button class="npill" id="np-demo" onclick="switchTab('demo',this)">Demo</button>
+    <a href="/analytics" class="npill">ML Analytics</a>
+  </div>
+  <div class="nav-right">
+    <div class="live-badge"><div class="pulse"></div>LIVE</div>
+    <a href="/portal" class="btn btn-ghost btn-sm" target="_blank">Honeypot ↗</a>
+    <button class="btn btn-danger btn-sm" id="sim-btn" onclick="simulate()">⚡ Simulate</button>
+  </div>
+</nav>
+
+<div class="page ui">
+
+  <!-- ── STAT STRIP ── always visible -->
+  <div class="stat-strip fu">
+    <div class="stat-cell">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-num t1" id="s-total">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Failed Logins</div>
+      <div class="stat-num" style="color:var(--red)" id="s-fail">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">ML Anomalies</div>
+      <div class="stat-num" style="color:var(--amber)" id="s-anom">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Critical</div>
+      <div class="stat-num" style="color:var(--red)" id="s-crit">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Honeypot Hits</div>
+      <div class="stat-num" style="color:var(--violet)" id="s-honey">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Snapshots</div>
+      <div class="stat-num" style="color:var(--cyan)" id="s-snaps">0</div>
+    </div>
+  </div>
+
+  <!-- ── TABS ── -->
+  <div class="tab-bar fu1">
+    <button class="tab on" id="t-overview" onclick="switchTab('overview',this)">Overview</button>
+    <button class="tab" id="t-intruders" onclick="switchTab('intruders',this)">Intruders</button>
+    <button class="tab" id="t-demo" onclick="switchTab('demo',this)">Demo</button>
+  </div>
+
+  <!-- ══════════════════ OVERVIEW ══════════════════ -->
+  <div class="pane on" id="pane-overview">
+
+    <div class="g-main fu2">
+      <!-- Left column -->
+      <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+        <!-- Timeline chart -->
+        <div class="glass hud">
+          <div class="ph">
+            <span class="pt">Event Timeline — 24h</span>
+            <div style="display:flex;align-items:center;gap:0.7rem;">
+              <span id="tl-lbl" style="font-size:0.6rem;color:var(--w4);font-family:var(--mono);">0 events</span>
+              <button class="btn btn-ghost btn-xs" onclick="fullRefresh()">↺</button>
+            </div>
+          </div>
+          <div class="pb"><div class="ch-200"><canvas id="ch-timeline"></canvas></div></div>
+        </div>
+
+        <!-- Live event feed -->
+        <div class="glass hud">
+          <div class="ph">
+            <span class="pt">Live Event Feed</span>
+            <div class="live-badge" style="font-size:0.58rem"><div class="pulse"></div>STREAMING</div>
+          </div>
+          <!-- Feed header -->
+          <div style="display:grid;grid-template-columns:56px 90px 1fr 72px 72px 48px;gap:0.4rem;padding:0.55rem 1rem;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <span style="font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);font-family:var(--mono);">TIME</span>
+            <span style="font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);font-family:var(--mono);">USER</span>
+            <span style="font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);font-family:var(--mono);">ORIGIN</span>
+            <span style="font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);font-family:var(--mono);">THREAT</span>
+            <span style="font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);font-family:var(--mono);">ML</span>
+            <span style="font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);font-family:var(--mono);">RISK</span>
+          </div>
+          <div class="feed-scroll" id="feed-body">
+            <div style="padding:2.5rem;text-align:center;font-size:0.75rem;color:var(--w4);">Waiting for events…</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right sidebar -->
+      <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+        <div class="glass hud">
+          <div class="ph"><span class="pt">Threat Distribution</span></div>
+          <div class="pb" id="thr-dist"><div style="font-size:0.7rem;color:var(--w4);">No data yet</div></div>
+        </div>
+
+        <div class="glass hud">
+          <div class="ph"><span class="pt">Top Attack Origins</span></div>
+          <div class="pb" id="orig-list"><div style="font-size:0.7rem;color:var(--w4);">No data yet</div></div>
+        </div>
+
+        <div class="glass hud">
+          <div class="ph"><span class="pt">Source Mix</span></div>
+          <div class="pb"><div class="ch-160"><canvas id="ch-donut"></canvas></div></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Snapshot gallery -->
+    <div class="glass hud fu3">
+      <div class="ph">
+        <span class="pt">IoT Intruder Snapshots</span>
+        <button class="btn btn-ghost btn-xs" onclick="loadSnaps()">↺ Refresh</button>
+      </div>
+      <div class="pb">
+        <div class="snap-grid" id="snap-grid-ov">
+          <div style="padding:1.5rem;color:var(--w4);font-size:0.78rem;">No captures yet — simulate an attack or try the Demo tab.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /overview -->
+
+  <!-- ══════════════════ INTRUDERS ══════════════════ -->
+  <div class="pane" id="pane-intruders">
+    <div class="g2 fu">
+
+      <div class="glass hud">
+        <div class="ph">
+          <span class="pt">Flagged Intruders</span>
+          <button class="btn btn-danger btn-xs" onclick="deleteAll()">🗑 Delete All</button>
+        </div>
+        <div class="pb">
+          <div style="display:flex;flex-direction:column;gap:0.75rem;max-height:620px;overflow-y:auto;" id="ig-list">
+            <div style="padding:2.5rem;text-align:center;color:var(--w4);font-size:0.82rem;">📷 No intruder captures yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1.25rem;">
+        <div class="glass hud">
+          <div class="ph"><span class="pt">Threat Summary</span></div>
+          <div class="pb" id="ig-thr"><div style="font-size:0.7rem;color:var(--w4);">No data</div></div>
+        </div>
+        <div class="glass hud">
+          <div class="ph"><span class="pt">Capture Statistics</span></div>
+          <div class="pb"><div id="ig-stats" style="display:flex;flex-direction:column;gap:0.6rem;"></div></div>
+        </div>
+        <div class="glass hud">
+          <div class="ph"><span class="pt">Risk Distribution</span></div>
+          <div class="pb"><div class="ch-160"><canvas id="ch-risk"></canvas></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /intruders -->
+
+  <!-- ══════════════════ DEMO ══════════════════ -->
+  <div class="pane" id="pane-demo">
+    <div class="demo-layout fu">
+
+      <!-- Login card -->
+      <div style="position:relative;">
+        <div class="demo-card">
+          <!-- Card header with red glow -->
+          <div style="padding:1.25rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.06);background:linear-gradient(135deg,rgba(255,45,85,0.08),transparent);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
+              <div style="font-size:1rem;font-weight:800;">Demo Intrusion Simulator</div>
+              <span class="badge b-decoy">SANDBOX</span>
+            </div>
+            <div style="font-size:0.72rem;color:var(--w3);">Max <strong style="color:var(--w1);">3 attempts</strong> · Webcam capture on each failure · Lockout on breach</div>
+          </div>
+          <div style="padding:1.5rem;">
+
+            <!-- Valid credentials hint -->
+            <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:0.55rem;">Valid Demo Credentials</div>
+            <div class="cred-box">
+              <div class="cred-row"><span class="cred-k">Username</span><span class="cred-v">demo</span></div>
+              <div class="cred-row"><span class="cred-k">Password</span><span class="cred-v">Demo@2026</span></div>
+              <div class="cred-sep"></div>
+              <div class="cred-row"><span class="cred-k">Alt User</span><span class="cred-v">guest</span></div>
+              <div class="cred-row"><span class="cred-k">Alt Pass</span><span class="cred-v">Guest#123</span></div>
+            </div>
+
+            <!-- Attempt indicator -->
+            <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:0.5rem;">Remaining Attempts</div>
+            <div class="att-wrap" id="att-wrap">
+              <div class="att-dot" id="ad1"></div>
+              <div class="att-dot" id="ad2"></div>
+              <div class="att-dot" id="ad3"></div>
+              <span style="font-size:0.68rem;color:var(--w3);font-family:var(--mono);" id="att-lbl">3 of 3</span>
+            </div>
+
+            <!-- Result message -->
+            <div class="demo-res" id="demo-res"></div>
+
+            <!-- Form -->
+            <label class="f-label">Username</label>
+            <input id="du" class="f-input" type="text" placeholder="enter username" autocomplete="off"/>
+            <label class="f-label">Password</label>
+            <input id="dp" class="f-input" type="password" placeholder="••••••••"/>
+
+            <button class="btn btn-primary w-full" style="justify-content:center;padding:0.88rem;font-size:0.88rem;" id="demo-btn" onclick="demoLogin()">
+              <span id="demo-btn-txt">Attempt Login</span>
+            </button>
+
+            <button class="btn btn-ghost btn-sm w-full" style="justify-content:center;margin-top:0.75rem;" onclick="resetDemo()">↺ Reset Demo</button>
+
+          </div>
+        </div>
+        <!-- Lock overlay -->
+        <div class="lock-overlay" id="lock-overlay">
+          <div class="lock-emoji">🔒</div>
+          <div class="lock-title">Account Locked</div>
+          <div class="lock-sub">Maximum attempts exceeded. Intruder captured and flagged in the Intruders tab.</div>
+          <button class="btn btn-primary btn-sm" style="margin-top:0.4rem;" onclick="resetDemo()">↺ Reset Demo</button>
+        </div>
+      </div>
+
+      <!-- Right panel: capture + analysis + history -->
+      <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+        <!-- Live capture -->
+        <div class="glass hud">
+          <div class="ph">
+            <span class="pt">IoT Capture — Live</span>
+            <div class="live-badge" style="font-size:0.58rem" id="cam-badge"><div class="pulse"></div>ARMED</div>
+          </div>
+          <div style="padding:1.2rem;" id="cap-area">
+            <div class="cap-empty">
+              <span style="font-size:2rem;">📷</span>
+              <span>Camera armed — fails trigger capture</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ML analysis -->
+        <div class="glass hud">
+          <div class="ph"><span class="pt">ML Analysis — Last Attempt</span></div>
+          <div style="padding:1.2rem;">
+            <div class="ml-grid" id="ml-panel">
+              <div class="ml-cell"><div class="ml-key">Model Output</div><div class="ml-val t4">—</div></div>
+              <div class="ml-cell"><div class="ml-key">Anomaly Score</div><div class="ml-val t4">—</div></div>
+              <div class="ml-cell"><div class="ml-key">Risk Score</div><div class="ml-val t4">—</div></div>
+              <div class="ml-cell"><div class="ml-key">Threat Level</div><div class="ml-val t4">—</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attempt history -->
+        <div class="glass hud">
+          <div class="ph"><span class="pt">Attempt History</span></div>
+          <div style="padding:1.2rem;" id="hist-panel">
+            <div style="font-size:0.75rem;color:var(--w4);">No attempts yet.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /demo -->
+
+</div><!-- /page -->
+
+<script>
+/* ══════════════════════════════════════════════════════
+   Chart.js global defaults
+══════════════════════════════════════════════════════ */
+Chart.defaults.color = 'rgba(255,255,255,0.38)';
+Chart.defaults.font.family = "'Space Grotesk', -apple-system, sans-serif";
+Chart.defaults.font.size   = 10;
+
+let tlChart, donutChart, riskChart;
+
+/* ══════════════════════════════════════════════════════
+   Tab switching
+══════════════════════════════════════════════════════ */
+function switchTab(name, triggerEl) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab, .npill').forEach(b => b.classList.remove('on','active'));
+  document.getElementById('pane-' + name).classList.add('on');
+  const tabBtn = document.getElementById('t-' + name);
+  if (tabBtn) tabBtn.classList.add('on');
+  const navBtn = document.getElementById('np-' + name);
+  if (navBtn) navBtn.classList.add('active');
+  triggerEl.classList.add('on','active');
+  if (name === 'intruders') loadIntruders();
+  if (name === 'overview')  fullRefresh();
+}
+
+/* ══════════════════════════════════════════════════════
+   Animated number counter
+══════════════════════════════════════════════════════ */
+function animNum(el, to) {
+  const from = parseInt(el.textContent) || 0;
+  if (from === to) return;
+  const dur = 450, steps = 24;
+  let i = 0;
+  const t = setInterval(() => {
+    i++;
+    const ease = 1 - Math.pow(1 - i/steps, 3); // ease-out cubic
+    el.textContent = Math.round(from + (to - from) * ease);
+    if (i >= steps) { el.textContent = to; clearInterval(t); }
+  }, dur / steps);
+}
+
+/* ══════════════════════════════════════════════════════
+   Threat config
+══════════════════════════════════════════════════════ */
+const TC = {
+  CRITICAL: ['var(--red)',   'rgba(255,45,85,0.75)'],
+  HIGH:     ['var(--amber)', 'rgba(255,159,10,0.65)'],
+  MEDIUM:   ['#FFB830',      'rgba(255,159,10,0.45)'],
+  LOW:      ['var(--green)', 'rgba(48,209,88,0.55)'],
+};
+function tBadge(v) { return {CRITICAL:'b-crit',HIGH:'b-high',MEDIUM:'b-med',LOW:'b-low'}[v]||'b-low'; }
+
+/* ══════════════════════════════════════════════════════
+   Render stats
+══════════════════════════════════════════════════════ */
+function renderStats(s) {
+  animNum(document.getElementById('s-total'), s.total_events    || 0);
+  animNum(document.getElementById('s-fail'),  s.failed_logins   || 0);
+  animNum(document.getElementById('s-anom'),  s.anomalies       || 0);
+  animNum(document.getElementById('s-crit'),  s.critical_threats|| 0);
+  animNum(document.getElementById('s-honey'), s.honeypot_hits   || 0);
+
+  // Threat distribution bars
+  const dist  = s.threat_distribution || {};
+  const total = Object.values(dist).reduce((a,b)=>a+b,0) || 1;
+  document.getElementById('thr-dist').innerHTML = Object.entries(TC).map(([k,[c,bg]]) => {
+    const n = dist[k] || 0, pct = Math.round(n/total*100);
+    return `<div class="tbar">
+      <span class="tbar-label" style="color:${c}">${k}</span>
+      <div class="tbar-track"><div class="tbar-fill" style="background:${bg};width:${pct}%"></div></div>
+      <span class="tbar-count">${n}</span>
+    </div>`;
+  }).join('');
+
+  // Origins
+  const origs = s.top_origins || [];
+  document.getElementById('orig-list').innerHTML = origs.length
+    ? origs.map(o => `<div class="orig-row"><span class="orig-name">${o.origin}</span><span class="orig-pill">${o.count}</span></div>`).join('')
+    : '<div style="font-size:0.7rem;color:var(--w4)">No data yet</div>';
+
+  if (s.source_distribution) buildDonut(s.source_distribution);
+}
+
+/* ══════════════════════════════════════════════════════
+   Render live feed
+══════════════════════════════════════════════════════ */
+function renderFeed(events) {
+  const el = document.getElementById('feed-body');
+  if (!events || !events.length) {
+    el.innerHTML = '<div style="padding:2.5rem;text-align:center;font-size:0.75rem;color:var(--w4);">No events yet.</div>';
+    return;
+  }
+  el.innerHTML = events.map(e => {
+    const srcTag = e.source==='decoy'    ? '<span class="badge b-decoy" style="font-size:0.5rem;padding:0.15rem 0.45rem">DEC</span>'
+                 : e.source==='simulated'? '<span class="badge b-sim"   style="font-size:0.5rem;padding:0.15rem 0.45rem">SIM</span>'
+                 : e.source==='demo'     ? '<span class="badge b-ok"    style="font-size:0.5rem;padding:0.15rem 0.45rem">DEMO</span>'
+                 : '';
+    const rc = e.risk_score>=75?'var(--red)':e.risk_score>=50?'var(--amber)':e.risk_score>=25?'#FFB830':'var(--green)';
+    return `<div class="feed-row">
+      <span>${(e.timestamp||'').slice(11,19)}</span>
+      <span class="t1 trunc" style="font-family:var(--font)">${e.username||'—'} ${srcTag}</span>
+      <span class="t3 trunc">${e.origin||'—'}</span>
+      <span><span class="badge ${tBadge(e.threat)}">${e.threat||'—'}</span></span>
+      <span><span class="badge ${e.ml_label==='ANOMALY'?'b-anom':'b-norm'}">${e.ml_label||'—'}</span></span>
+      <span style="color:${rc};font-weight:700">${e.risk_score||0}%</span>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════════
+   Render snapshots (overview strip)
+══════════════════════════════════════════════════════ */
+function renderSnaps(snaps) {
+  animNum(document.getElementById('s-snaps'), snaps.length);
+  const g = document.getElementById('snap-grid-ov');
+  if (!snaps.length) {
+    g.innerHTML = '<div style="padding:1.5rem;color:var(--w4);font-size:0.78rem;">No captures yet — simulate an attack or try the Demo tab.</div>';
+    return;
+  }
+  g.innerHTML = snaps.slice(0, 10).map(s => {
+    const fname = (s.file||'').split('/').pop().split('\\').pop();
+    return `<div class="snap-card">
+      <span class="snap-flag">FLAGGED</span>
+      <button class="snap-del" onclick="event.stopPropagation();delSnap('${fname}','${s.username||''}')">✕</button>
+      <img class="snap-img" src="${s.url}" alt="intruder"
+           onerror="this.style.background='#111827';this.style.minHeight='120px'"/>
+      <div class="snap-body">
+        <div class="snap-user">${s.username||'unknown'}</div>
+        <div class="snap-time">${(s.timestamp||'').slice(0,19)}</div>
+        <div class="snap-risk">Risk: ${s.risk||0}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════════
+   Charts
+══════════════════════════════════════════════════════ */
+function buildTimeline(data) {
+  const ctx = document.getElementById('ch-timeline').getContext('2d');
+  if (tlChart) tlChart.destroy();
+  const grad = ctx.createLinearGradient(0,0,0,200);
+  grad.addColorStop(0,   'rgba(255,45,85,0.45)');
+  grad.addColorStop(0.6, 'rgba(255,45,85,0.10)');
+  grad.addColorStop(1,   'rgba(255,45,85,0)');
+  tlChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d=>d.hour),
+      datasets: [{
+        label:'Events', data:data.map(d=>d.count),
+        borderColor:'rgba(255,45,85,0.9)',
+        backgroundColor:grad, fill:true,
+        tension:0.45, pointBackgroundColor:'#FF2D55',
+        pointRadius:4, pointHoverRadius:6, borderWidth:2.5,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:900, easing:'easeInOutQuart' },
+      plugins:{ legend:{display:false} },
+      interaction:{ intersect:false, mode:'index' },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false}, ticks:{maxRotation:0} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false}, beginAtZero:true, ticks:{stepSize:1} },
+      }
+    }
+  });
+}
+
+function buildDonut(src) {
+  const ctx = document.getElementById('ch-donut').getContext('2d');
+  if (donutChart) donutChart.destroy();
+  const L = Object.keys(src), V = Object.values(src);
+  const C = { admin:'rgba(255,45,85,0.72)', decoy:'rgba(191,90,242,0.72)',
+              simulated:'rgba(255,159,10,0.72)', demo:'rgba(48,209,88,0.72)' };
+  donutChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels:L, datasets:[{ data:V, backgroundColor:L.map(l=>C[l]||'rgba(255,255,255,0.2)'), borderWidth:0, hoverOffset:8 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:800, easing:'easeOutQuart' },
+      plugins:{
+        legend:{ position:'bottom', labels:{ padding:12, usePointStyle:true, pointStyleWidth:8 } }
+      },
+      cutout:'72%'
+    }
+  });
+}
+
+function buildRiskDist(snaps) {
+  const ctx = document.getElementById('ch-risk').getContext('2d');
+  if (riskChart) riskChart.destroy();
+  const bins = [0,0,0,0];
+  snaps.forEach(s => { const r=s.risk||0; bins[r>=75?3:r>=50?2:r>=25?1:0]++; });
+  riskChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['0–25','25–50','50–75','75–100'],
+      datasets:[{ data:bins,
+        backgroundColor:['rgba(48,209,88,0.5)','rgba(255,159,10,0.5)','rgba(255,69,58,0.5)','rgba(255,45,85,0.72)'],
+        borderRadius:5, borderSkipped:false }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:700 },
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false}, beginAtZero:true, ticks:{stepSize:1} }
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════
+   Intruders tab
+══════════════════════════════════════════════════════ */
+async function loadIntruders() {
+  const [sR, snR] = await Promise.all([fetch('/api/stats'), fetch('/api/snapshots')]);
+  const [stats, snaps] = await Promise.all([sR.json(), snR.json()]);
+  animNum(document.getElementById('s-snaps'), snaps.length);
+
+  const list = document.getElementById('ig-list');
+  if (!snaps.length) {
+    list.innerHTML = '<div style="padding:2.5rem;text-align:center;color:var(--w4);font-size:0.82rem;">📷 No captures yet.</div>';
+  } else {
+    list.innerHTML = snaps.map(s => {
+      const fname = (s.file||'').split('/').pop().split('\\').pop();
+      return `<div class="ig-card" id="igc-${CSS.escape(fname)}">
+        <img class="ig-thumb" src="${s.url}" onerror="this.style.background='#111827'"/>
+        <div style="display:flex;flex-direction:column;gap:0.3rem;">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--w1)">⚠ ${s.username||'unknown'}</div>
+          <div style="font-size:0.68rem;color:var(--w3)">📅 ${(s.timestamp||'').slice(0,19)}</div>
+          <div style="font-size:0.68rem;color:var(--w3)">🔥 Risk: <strong style="color:var(--red)">${s.risk||0}%</strong></div>
+          <div style="margin-top:0.25rem"><span class="badge ${tBadge(s.threat||'LOW')}">${s.threat||'UNKNOWN'}</span></div>
+        </div>
+        <button class="ig-del" onclick="delSnap('${fname}','${s.username||''}')">🗑</button>
+      </div>`;
+    }).join('');
+  }
+
+  // Threat dist
+  const dist  = stats.threat_distribution || {};
+  const total = Object.values(dist).reduce((a,b)=>a+b,0) || 1;
+  document.getElementById('ig-thr').innerHTML = Object.entries(TC).map(([k,[c,bg]]) => {
+    const n = dist[k]||0, pct = Math.round(n/total*100);
+    return `<div class="tbar"><span class="tbar-label" style="color:${c}">${k}</span><div class="tbar-track"><div class="tbar-fill" style="background:${bg};width:${pct}%"></div></div><span class="tbar-count">${n}</span></div>`;
+  }).join('');
+
+  // Stats
+  document.getElementById('ig-stats').innerHTML = [
+    ['Total Captures',  snaps.length],
+    ['Critical (≥75%)', snaps.filter(s=>s.risk>=75).length],
+    ['High (50–75%)',   snaps.filter(s=>s.risk>=50&&s.risk<75).length],
+    ['Unique Users',    [...new Set(snaps.map(s=>s.username))].length],
+  ].map(([k,v]) => `<div style="display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:0.72rem;color:var(--w3)">${k}</span>
+    <span style="font-size:0.82rem;font-weight:700;color:var(--w1);font-variant-numeric:tabular-nums">${v}</span>
+  </div>`).join('');
+
+  buildRiskDist(snaps);
+}
+
+async function delSnap(fname, uname) {
+  if (!confirm(`Delete snapshot of "${uname}"?`)) return;
+  await fetch('/api/snapshots/' + fname, { method:'DELETE' });
+  await fullRefresh();
+  if (document.getElementById('pane-intruders').classList.contains('on')) loadIntruders();
+}
+
+async function deleteAll() {
+  const snaps = await (await fetch('/api/snapshots')).json();
+  if (!snaps.length) return;
+  if (!confirm(`Delete all ${snaps.length} snapshots?`)) return;
+  for (const s of snaps) {
+    const f = (s.file||'').split('/').pop().split('\\').pop();
+    if (f) await fetch('/api/snapshots/' + f, { method:'DELETE' });
+  }
+  await fullRefresh();
+  loadIntruders();
+}
+
+/* ══════════════════════════════════════════════════════
+   Full data refresh
+══════════════════════════════════════════════════════ */
+async function fullRefresh() {
+  try {
+    const [sR, eR, tR, snR] = await Promise.all([
+      fetch('/api/stats'), fetch('/api/recent-events'),
+      fetch('/api/threat-timeline'), fetch('/api/snapshots'),
+    ]);
+    const [stats, events, tl, snaps] = await Promise.all([sR.json(), eR.json(), tR.json(), snR.json()]);
+    renderStats(stats);
+    renderFeed(events);
+    buildTimeline(tl);
+    renderSnaps(snaps);
+    document.getElementById('tl-lbl').textContent = events.length + ' events';
+  } catch(e) { console.warn('Refresh error:', e); }
+}
+
+/* ══════════════════════════════════════════════════════
+   Simulate attack
+══════════════════════════════════════════════════════ */
+async function simulate() {
+  const btn = document.getElementById('sim-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    await fetch('/api/simulate', { method:'POST' });
+    btn.textContent = '✓ Done';
+    await fullRefresh();
+    if (document.getElementById('pane-intruders').classList.contains('on')) loadIntruders();
+  } catch(e) {}
+  setTimeout(() => { btn.disabled=false; btn.textContent='⚡ Simulate'; }, 2000);
+}
+
+async function loadSnaps() {
+  const r = await fetch('/api/snapshots');
+  renderSnaps(await r.json());
+}
+
+/* ══════════════════════════════════════════════════════
+   SSE live stream
+══════════════════════════════════════════════════════ */
+const sse = new EventSource('/api/live');
+sse.onmessage = e => {
+  const d = JSON.parse(e.data);
+  if (d.stats) renderStats(d.stats);
+  if (d.events && d.events.length) fullRefresh();
+};
+sse.onerror = () => {};
+
+/* ══════════════════════════════════════════════════════
+   DEMO TAB
+══════════════════════════════════════════════════════ */
+let demoAtt = 0;
+const demoHist = [];
+
+function updDots() {
+  for (let i = 1; i <= 3; i++) {
+    const d = document.getElementById('ad' + i);
+    d.className = 'att-dot' + (i <= demoAtt ? ' fail' : '');
+  }
+  document.getElementById('att-lbl').textContent = (3 - demoAtt) + ' of 3';
+}
+
+async function demoLogin() {
+  const u = document.getElementById('du').value.trim();
+  const p = document.getElementById('dp').value;
+  if (!u || !p) return;
+  const btn = document.getElementById('demo-btn');
+  btn.disabled = true;
+  document.getElementById('demo-btn-txt').innerHTML = '<span class="spinner"></span>';
+  demoAtt++;
+  updDots();
+
+  try {
+    const r = await fetch('/api/demo-login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username:u, password:p, attempt:demoAtt })
+    });
+    const d = await r.json();
+    const res = document.getElementById('demo-res');
+
+    if (d.status === 'success') {
+      res.className = 'demo-res on ok';
+      res.innerHTML = `✅ Login successful! Welcome, <strong>${u}</strong>`;
+      document.getElementById('demo-btn-txt').textContent = '✓ Authenticated';
+      updML({ ml_label:'NORMAL', ml_score:5, risk:d.risk, threat:d.threat });
+      demoHist.unshift({ u, ok:true, risk:d.risk, threat:d.threat });
+    } else {
+      res.className = 'demo-res on bad';
+      res.innerHTML = `⛔ Invalid credentials — attempt ${demoAtt} of 3`;
+      document.getElementById('demo-btn-txt').textContent = 'Attempt Login';
+      updCapture(d);
+      updML(d);
+      demoHist.unshift({ u, ok:false, risk:d.risk, threat:d.threat, origin:d.origin });
+      if (d.locked || demoAtt >= 3) {
+        document.getElementById('lock-overlay').classList.add('on');
+      } else {
+        btn.disabled = false;
+      }
+    }
+    renderDemoHist();
+    await fullRefresh();
+    if (document.getElementById('pane-intruders').classList.contains('on')) loadIntruders();
+  } catch(e) {
+    document.getElementById('demo-btn-txt').textContent = 'Attempt Login';
+    btn.disabled = false;
+  }
+}
+
+function updCapture(d) {
+  const area = document.getElementById('cap-area');
+  if (d.snapshot) {
+    const url = '/outputs/' + d.snapshot.split('/').pop().split('\\').pop();
+    area.innerHTML = `
+      <div class="cap-frame">
+        <img src="${url}" alt="intruder capture"
+             onerror="this.style.background='#111827';this.style.minHeight='150px'"/>
+        <span class="cap-badge">INTRUDER CAPTURED</span>
+      </div>
+      <div class="cap-meta">📸 Saved · Check Intruders tab → flagged with metadata</div>`;
+  } else {
+    area.innerHTML = `<div class="cap-empty"><span style="font-size:2rem">📷</span><span>Capture stored (PIL placeholder — no webcam)</span></div>`;
+  }
+}
+
+function updML(d) {
+  const tc = { CRITICAL:'var(--red)', HIGH:'var(--amber)', MEDIUM:'#FFB830', LOW:'var(--green)' };
+  document.getElementById('ml-panel').innerHTML = [
+    ['Model Output',   d.ml_label||'—',              d.ml_label==='ANOMALY'?'var(--amber)':'var(--green)'],
+    ['Anomaly Score',  (d.ml_score||0)+'%',           'var(--red)'],
+    ['Risk Score',     (d.risk||0)+'%',               (d.risk||0)>=75?'var(--red)':(d.risk||0)>=50?'var(--amber)':'var(--green)'],
+    ['Threat Level',   d.threat||'—',                 tc[d.threat]||'var(--w2)'],
+  ].map(([k,v,c]) => `<div class="ml-cell"><div class="ml-key">${k}</div><div class="ml-val" style="color:${c}">${v}</div></div>`).join('');
+}
+
+function renderDemoHist() {
+  const el = document.getElementById('hist-panel');
+  if (!demoHist.length) { el.innerHTML = '<div style="font-size:0.75rem;color:var(--w4)">No attempts yet.</div>'; return; }
+  el.innerHTML = demoHist.map(h => `
+    <div class="hist-row">
+      <span style="font-size:0.9rem">${h.ok ? '✅' : '⛔'}</span>
+      <div style="flex:1">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--w1)">${h.u}</div>
+        <div style="font-size:0.62rem;color:var(--w4);font-family:var(--mono)">Risk: ${h.risk}% · ${h.threat||'—'}</div>
+      </div>
+      <span class="badge ${h.ok?'b-ok':'b-fail'}">${h.ok?'SUCCESS':'FAIL'}</span>
+    </div>`).join('');
+}
+
+function resetDemo() {
+  demoAtt = 0;
+  demoHist.length = 0;
+  document.getElementById('lock-overlay').classList.remove('on');
+  document.getElementById('demo-btn').disabled = false;
+  document.getElementById('demo-btn-txt').textContent = 'Attempt Login';
+  document.getElementById('du').value = '';
+  document.getElementById('dp').value = '';
+  document.getElementById('demo-res').className = 'demo-res';
+  document.getElementById('cap-area').innerHTML = `<div class="cap-empty"><span style="font-size:2rem;">📷</span><span>Camera armed — fails trigger capture</span></div>`;
+  document.getElementById('ml-panel').innerHTML = `
+    <div class="ml-cell"><div class="ml-key">Model Output</div><div class="ml-val t4">—</div></div>
+    <div class="ml-cell"><div class="ml-key">Anomaly Score</div><div class="ml-val t4">—</div></div>
+    <div class="ml-cell"><div class="ml-key">Risk Score</div><div class="ml-val t4">—</div></div>
+    <div class="ml-cell"><div class="ml-key">Threat Level</div><div class="ml-val t4">—</div></div>`;
+  renderDemoHist();
+  updDots();
+}
+
+document.getElementById('dp').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('demo-btn').disabled) demoLogin();
+});
+
+/* ══════════════════════════════════════════════════════
+   Init
+══════════════════════════════════════════════════════ */
+fullRefresh();
+setInterval(fullRefresh, 10000);
+</script>
+</body>
+</html>

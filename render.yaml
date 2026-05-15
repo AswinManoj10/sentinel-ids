@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: sentinel-ids
+    runtime: python
+    buildCommand: "pip install -r requirements.txt && python data/generate_dataset.py"
+    startCommand: "python app.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

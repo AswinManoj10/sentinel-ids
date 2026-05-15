@@ -1,0 +1,28 @@
+{
+  "total_events": 1000,
+  "normal_count": 800,
+  "attack_count": 200,
+  "attack_types": {
+    "brute_force": 150,
+    "sql_injection": 50,
+    "credential_stuffing": 0
+  },
+  "top_attack_ips": [
+    "185.220.101.45",
+    "94.102.49.180",
+    "45.33.32.156",
+    "198.20.69.74",
+    "92.118.160.10"
+  ],
+  "top_attack_usernames": [
+    "root",
+    "admin",
+    "administrator",
+    "test",
+    "oracle",
+    "sa",
+    "pi",
+    "guest"
+  ],
+  "generated_at": "2026-05-15T09:22:01.769422"
+}

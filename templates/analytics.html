@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SENTINEL IDS — ML Analytics</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.page { max-width:1400px; margin:0 auto; padding:1.5rem 1.75rem 6rem; }
+
+.g2   { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+.g3   { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+.g4   { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.08); border-radius:var(--r3); overflow:hidden; margin-bottom:1.25rem; }
+.g6   { display:grid; grid-template-columns:repeat(6,1fr); gap:1px; background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.08); border-radius:var(--r3); overflow:hidden; margin-bottom:1.25rem; }
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr;} .g4,.g6{grid-template-columns:repeat(2,1fr);}}
+
+.mc  { background:var(--g1); padding:1.1rem 1.25rem; }
+.mval{ font-size:2rem; font-weight:800; letter-spacing:-0.04em; line-height:1;
+       margin-top:0.4rem; font-variant-numeric:tabular-nums; }
+.mlbl{ font-size:0.6rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--w4); }
+
+.ch-200 { position:relative; height:200px; }
+.ch-220 { position:relative; height:220px; }
+.ch-180 { position:relative; height:180px; }
+
+/* Model cards */
+.model-card {
+  background:var(--g1); border:1px solid var(--gb); border-radius:var(--r3); padding:1.35rem;
+  position:relative; overflow:hidden; transition:all 0.25s ease;
+}
+.model-card:hover { background:var(--g2); transform:translateY(-2px); }
+.model-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:var(--gr-rose); transform:scaleX(0); transform-origin:left;
+  transition:transform 0.4s ease;
+}
+.model-card:hover::before { transform:scaleX(1); }
+.mc-icon { font-size:1.8rem; margin-bottom:0.7rem; display:block; }
+.mc-name { font-size:1rem; font-weight:800; margin-bottom:0.45rem; }
+.mc-desc { font-size:0.7rem; color:var(--w3); line-height:1.65; }
+.mc-tag  { display:inline-flex; align-items:center; gap:0.3rem;
+           font-family:var(--mono); font-size:0.58rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+           padding:0.22rem 0.7rem; border-radius:100px; border:1px solid; margin-top:0.8rem; }
+
+/* Feature importance bars */
+.fi-row  { display:grid; grid-template-columns:95px 1fr 38px; align-items:center; gap:0.65rem; margin-bottom:0.6rem; }
+.fi-lbl  { font-size:0.66rem; color:var(--w2); }
+.fi-track{ height:4px; background:rgba(255,255,255,0.07); border-radius:2px; overflow:hidden; }
+.fi-fill { height:4px; border-radius:2px;
+           background:linear-gradient(90deg,#FF2D55,#FF6B35);
+           transition:width 1.6s cubic-bezier(0.4,0,0.2,1); }
+.fi-pct  { font-family:var(--mono); font-size:0.6rem; color:var(--w4); text-align:right; }
+
+/* Confusion matrix */
+.conf-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.conf-cell { padding:1rem; border-radius:var(--r); text-align:center; }
+.conf-val  { font-size:1.8rem; font-weight:800; letter-spacing:-0.03em; line-height:1; }
+.conf-lbl  { font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; margin-top:0.35rem; }
+</style>
+</head>
+<body>
+<div class="lbg">
+  <div class="orb orb-a"></div><div class="orb orb-b"></div>
+  <div class="orb orb-c"></div><div class="orb orb-d"></div>
+</div>
+<div class="grid-ov"></div>
+<div class="noise-ov"></div>
+
+<nav class="navbar ui">
+  <a href="/" class="nav-brand">
+    <div class="nav-icon">🛡</div>
+    <span class="nav-title">SENTINEL<small>IDS v4</small></span>
+  </a>
+  <div class="nav-pills">
+    <a href="/" class="npill">Overview</a>
+    <a href="/analytics" class="npill active">ML Analytics</a>
+  </div>
+  <div class="nav-right">
+    <div class="live-badge"><div class="pulse"></div>ML ONLINE</div>
+    <button class="btn btn-ghost btn-sm" onclick="refresh()">↺ Refresh</button>
+  </div>
+</nav>
+
+<div class="page ui">
+
+  <!-- Page header -->
+  <div style="margin-bottom:1.75rem" class="fu">
+    <h1 style="font-size:2rem;font-weight:800;letter-spacing:-0.03em;margin-bottom:0.35rem;">
+      ML <span class="gr-red">Analytics</span>
+    </h1>
+    <p style="font-size:0.78rem;color:var(--w3);">
+      Isolation Forest · DBSCAN Clustering · Local Outlier Factor · 1,000-row dataset · Online Welford Scaler
+    </p>
+  </div>
+
+  <!-- Model cards -->
+  <div class="g3 fu1">
+    <div class="model-card hud">
+      <span class="mc-icon">🌲</span>
+      <div class="mc-name gr-red">Isolation Forest</div>
+      <div class="mc-desc">80-tree pure-Python ensemble. Anomalies are isolated with shorter average path lengths. Online-retrained every 30 events. Bootstrapped on 1,000-row labeled dataset.</div>
+      <span class="mc-tag" style="color:var(--red);border-color:var(--rb);background:var(--rg1);">PRIMARY · REAL-TIME</span>
+    </div>
+    <div class="model-card hud">
+      <span class="mc-icon">⬡</span>
+      <div class="mc-name" style="color:var(--violet);">DBSCAN Clustering</div>
+      <div class="mc-desc">Density-based spatial clustering of login-time behavioral patterns. No preset cluster count. Approximate silhouette scoring. Noise points auto-labeled as outliers.</div>
+      <span class="mc-tag" style="color:var(--violet);border-color:rgba(191,90,242,0.28);background:rgba(191,90,242,0.08);">SECONDARY · CLUSTER</span>
+    </div>
+    <div class="model-card hud">
+      <span class="mc-icon">⚡</span>
+      <div class="mc-name" style="color:var(--amber);">LOF + Welford Scaler</div>
+      <div class="mc-desc">Local Outlier Factor (k=8) cross-validates Isolation Forest predictions. Welford streaming scaler normalizes features in real-time without storing history.</div>
+      <span class="mc-tag" style="color:var(--amber);border-color:var(--ab1);background:var(--ag1);">VALIDATION · PREPROCESSING</span>
+    </div>
+  </div>
+
+  <!-- Primary metrics strip -->
+  <div class="g6 fu2">
+    <div class="mc"><div class="mlbl">Samples</div><div class="mval t1" id="m-total">—</div></div>
+    <div class="mc"><div class="mlbl">Anomalies</div><div class="mval" style="color:var(--amber)" id="m-anom">—</div></div>
+    <div class="mc"><div class="mlbl">Anomaly Rate</div><div class="mval" style="color:var(--red)" id="m-rate">—</div></div>
+    <div class="mc"><div class="mlbl">IF Threshold</div><div class="mval" style="color:var(--blue)" id="m-thresh">—</div></div>
+    <div class="mc"><div class="mlbl">LOF Rate</div><div class="mval" style="color:var(--violet)" id="m-lof">—</div></div>
+    <div class="mc"><div class="mlbl">Agreement</div><div class="mval" style="color:var(--green)" id="m-agree">—</div></div>
+  </div>
+
+  <!-- Evaluation metrics -->
+  <div class="g4 fu3">
+    <div class="mc"><div class="mlbl">Precision</div><div class="mval" style="color:var(--blue)" id="m-prec">—</div></div>
+    <div class="mc"><div class="mlbl">Recall</div><div class="mval" style="color:var(--green)" id="m-rec">—</div></div>
+    <div class="mc"><div class="mlbl">F1 Score</div><div class="mval" style="color:var(--amber)" id="m-f1">—</div></div>
+    <div class="mc"><div class="mlbl">Accuracy</div><div class="mval" style="color:var(--cyan)" id="m-acc">—</div></div>
+  </div>
+
+  <!-- Row 1: histogram + confusion matrix -->
+  <div class="g2 fu3">
+    <div class="glass hud">
+      <div class="ph">
+        <span class="pt">Anomaly Score Distribution</span>
+        <span style="font-size:0.62rem;color:var(--w4);font-family:var(--mono);" id="score-info">—</span>
+      </div>
+      <div class="pb"><div class="ch-200"><canvas id="ch-hist"></canvas></div></div>
+    </div>
+    <div class="glass hud">
+      <div class="ph"><span class="pt">Confusion Matrix — Dataset Evaluation</span></div>
+      <div class="pb">
+        <div class="conf-grid">
+          <div class="conf-cell" style="background:var(--gg1);">
+            <div class="conf-val" style="color:var(--green)" id="cm-tp">—</div>
+            <div class="conf-lbl t4">True Positive</div>
+          </div>
+          <div class="conf-cell" style="background:var(--ag1);">
+            <div class="conf-val" style="color:var(--amber)" id="cm-fp">—</div>
+            <div class="conf-lbl t4">False Positive</div>
+          </div>
+          <div class="conf-cell" style="background:var(--ag1);">
+            <div class="conf-val" style="color:var(--amber)" id="cm-fn">—</div>
+            <div class="conf-lbl t4">False Negative</div>
+          </div>
+          <div class="conf-cell" style="background:var(--rg1);">
+            <div class="conf-val" style="color:var(--blue)" id="cm-tn">—</div>
+            <div class="conf-lbl t4">True Negative</div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;"><div class="ch-180"><canvas id="ch-split"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: DBSCAN scatter + feature importance -->
+  <div class="g2 fu4">
+    <div class="glass hud">
+      <div class="ph">
+        <span class="pt">DBSCAN Cluster Map</span>
+        <span style="font-size:0.62rem;color:var(--w4);font-family:var(--mono);" id="db-info">—</span>
+      </div>
+      <div class="pb"><div class="ch-220"><canvas id="ch-cluster"></canvas></div></div>
+    </div>
+    <div class="glass hud">
+      <div class="ph"><span class="pt">Feature Variance Importance</span></div>
+      <div class="pb"><div id="fi-list"><div style="font-size:0.72rem;color:var(--w4)">Loading…</div></div></div>
+    </div>
+  </div>
+
+  <!-- DBSCAN metrics -->
+  <div class="g4 fu5">
+    <div class="mc"><div class="mlbl">DBSCAN Clusters</div><div class="mval" style="color:var(--violet)" id="db-n">—</div></div>
+    <div class="mc"><div class="mlbl">Noise Ratio</div><div class="mval" style="color:var(--amber)" id="db-noise">—</div></div>
+    <div class="mc"><div class="mlbl">Silhouette Score</div><div class="mval" style="color:var(--cyan)" id="db-sil">—</div></div>
+    <div class="mc"><div class="mlbl">Trees (IF)</div><div class="mval t1" id="db-trees">—</div></div>
+  </div>
+
+</div>
+
+<script>
+Chart.defaults.color = 'rgba(255,255,255,0.38)';
+Chart.defaults.font.family = "'Space Grotesk',-apple-system,sans-serif";
+Chart.defaults.font.size   = 10;
+
+let histC, splitC, clusterC;
+const CC = ['#FF2D55','#0A84FF','#30D158','#FF9F0A','#BF5AF2','#64D2FF','#FF6B35','#FF375F'];
+
+async function refresh() {
+  const [mR, cR] = await Promise.all([fetch('/api/ml-analytics'), fetch('/api/cluster-data')]);
+  const ml = await mR.json();
+  const cl = await cR.json();
+
+  // Primary metrics
+  set('m-total',  ml.total_samples   || 0);
+  set('m-anom',   ml.anomaly_count   || 0);
+  set('m-rate',  (ml.anomaly_rate    || 0) + '%');
+  set('m-thresh', ml.threshold       || '—');
+  set('m-lof',   (ml.lof_anomaly_rate|| 0) + '%');
+  set('m-agree', (ml.model_agreement || 0) + '%');
+
+  // Eval
+  set('m-prec', ml.precision  || '—');
+  set('m-rec',  ml.recall     || '—');
+  set('m-f1',   ml.f1_score   || '—');
+  set('m-acc', (ml.accuracy   || 0) + '%');
+
+  // Confusion matrix
+  set('cm-tp', ml.tp || 0); set('cm-fp', ml.fp || 0);
+  set('cm-fn', ml.fn || 0); set('cm-tn', ml.tn || 0);
+  set('score-info', `Normal avg: ${ml.score_mean_normal} · Anomaly avg: ${ml.score_mean_anomaly}`);
+
+  // DBSCAN
+  set('db-n',     ml.dbscan_clusters    || 0);
+  set('db-noise', (ml.dbscan_noise_ratio|| 0) + '%');
+  set('db-sil',   ml.dbscan_silhouette  || '—');
+  set('db-trees', ml.if_n_trees         || '—');
+  set('db-info',  `${ml.dbscan_clusters} clusters · sil: ${ml.dbscan_silhouette}`);
+
+  buildHist(ml.score_histogram || []);
+  buildSplit(ml.normal_count || 0, ml.anomaly_count || 0);
+  buildFeatures(ml.feature_names || [], ml.feature_importance || []);
+  buildCluster(cl);
+}
+
+function set(id, v) { const el = document.getElementById(id); if(el) el.textContent = v; }
+
+function buildHist(bins) {
+  const ctx = document.getElementById('ch-hist').getContext('2d');
+  if (histC) histC.destroy();
+  histC = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: bins.map((_,i) => (i/10).toFixed(1)),
+      datasets:[{
+        label:'Count', data:bins,
+        backgroundColor: bins.map((_,i) => `hsla(${350-i*16},85%,${52+i*3}%,0.72)`),
+        borderRadius:4, borderSkipped:false,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:900, easing:'easeInOutQuart' },
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false},
+            title:{display:true, text:'Anomaly Score', color:'rgba(255,255,255,0.25)'} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false}, beginAtZero:true },
+      }
+    }
+  });
+}
+
+function buildSplit(n, a) {
+  const ctx = document.getElementById('ch-split').getContext('2d');
+  if (splitC) splitC.destroy();
+  splitC = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:['Normal','Anomaly'],
+      datasets:[{ data:[n,a], backgroundColor:['rgba(10,132,255,0.68)','rgba(255,45,85,0.68)'],
+                  borderWidth:0, hoverOffset:6 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:800, easing:'easeOutQuart' },
+      plugins:{ legend:{ position:'bottom', labels:{ padding:14, usePointStyle:true, pointStyleWidth:8 } } },
+      cutout:'70%'
+    }
+  });
+}
+
+function buildFeatures(names, imp) {
+  const max = Math.max(...imp, 1);
+  document.getElementById('fi-list').innerHTML = names.map((n,i) => {
+    const pct = Math.round(imp[i]/max*100);
+    return `<div class="fi-row">
+      <span class="fi-lbl">${n}</span>
+      <div class="fi-track"><div class="fi-fill" style="width:${pct}%"></div></div>
+      <span class="fi-pct">${imp[i]}%</span>
+    </div>`;
+  }).join('');
+}
+
+function buildCluster(data) {
+  const ctx = document.getElementById('ch-cluster').getContext('2d');
+  if (clusterC) clusterC.destroy();
+  if (!data?.points?.length) return;
+  const ids = [...new Set(data.points.map(p=>p.cluster))].sort((a,b)=>a-b);
+  clusterC = new Chart(ctx, {
+    type:'scatter',
+    data:{ datasets: ids.map(cid => {
+      const pts = data.points.filter(p=>p.cluster===cid);
+      const noise = cid === -1;
+      return {
+        label: noise ? `Noise (${pts.length})` : `C${cid} (${pts.length})`,
+        data: pts.map(p=>({x:p.x,y:p.y})),
+        backgroundColor: noise ? 'rgba(255,255,255,0.08)' : CC[cid%CC.length]+'99',
+        borderColor:     noise ? 'rgba(255,255,255,0.14)' : CC[cid%CC.length],
+        borderWidth:1, pointRadius: noise?3:5, pointHoverRadius:7,
+      };
+    })},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:900, easing:'easeInOutQuart' },
+      plugins:{ legend:{ position:'top', labels:{ padding:10, usePointStyle:true, pointStyleWidth:8 } } },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false},
+            title:{display:true, text:'sin(hour)', color:'rgba(255,255,255,0.25)'} },
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false},
+            title:{display:true, text:'cos(hour)', color:'rgba(255,255,255,0.25)'} },
+      }
+    }
+  });
+}
+
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>

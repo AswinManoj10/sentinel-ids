@@ -1,0 +1,11 @@
+timestamp,username,ip,source,valid,risk_score,ml_score,threat,origin,snapshot
+2026-05-13T11:21:46.611460,aoifja,127.0.0.1,decoy,False,33,0.531,MEDIUM,Localhost,
+2026-05-13T11:22:05.613615,aoifja,127.0.0.1,decoy,False,29,0.546,MEDIUM,Localhost,
+2026-05-13T11:22:25.742272,htdsthjdjdjt,127.0.0.1,decoy,False,33,0.537,MEDIUM,Localhost,
+2026-05-13T11:23:46.823740,demo,127.0.0.1,decoy,False,30,0.49,MEDIUM,Localhost,
+2026-05-13T11:24:53.071336,admin,127.0.0.1,decoy,False,56,0.505,HIGH,Local Network,
+2026-05-13T11:38:51.670235,lhahg,127.0.0.1,decoy,False,37,0.539,MEDIUM,Local Network,
+2026-05-13T11:39:39.331464,admin,127.0.0.1,decoy,False,52,0.517,HIGH,Local Network,
+2026-05-15T09:22:46.642709,afkjhs,127.0.0.1,decoy,False,37,0.537,MEDIUM,Local Network,
+2026-05-15T09:23:06.334648,afkjhs,127.0.0.1,decoy,False,38,0.534,MEDIUM,Corporate Intranet,
+2026-05-15T09:23:57.005422,admin,127.0.0.1,decoy,False,48,0.512,MEDIUM,Corporate Intranet,

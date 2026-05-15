@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SENTINEL — Secure Access</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}"/>
+<style>
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.login-shell{width:100%;max-width:1000px;display:grid;grid-template-columns:1fr 380px;min-height:560px;margin:1rem;border-radius:var(--r3);overflow:hidden;border:1px solid var(--border);background:rgba(0,0,0,0.5);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);}
+@media(max-width:720px){.login-shell{grid-template-columns:1fr}}
+/* Left info */
+.login-info{padding:3rem 2.5rem;background:linear-gradient(135deg,rgba(10,132,255,0.06),rgba(191,90,242,0.04));border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;}
+@media(max-width:720px){.login-info{display:none}}
+.brand-mark{display:flex;align-items:center;gap:0.75rem;margin-bottom:2.5rem;}
+.brand-icon{width:44px;height:44px;background:var(--grad-red);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:var(--glow-red);}
+.sys-list{display:flex;flex-direction:column;gap:1.25rem;margin-top:1.5rem;}
+.sys-row{display:flex;flex-direction:column;gap:0.3rem;}
+.sys-head{font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--t4);}
+.sys-val{font-size:0.8rem;color:var(--t2);display:flex;align-items:center;gap:0.4rem;}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dot-green{background:var(--green);box-shadow:0 0 8px rgba(50,215,75,0.6);}
+.dot-amber{background:var(--amber);}
+.foot-note{font-size:0.62rem;color:var(--t4);line-height:1.7;}
+/* Right form */
+.login-form{padding:3rem 2.5rem;display:flex;flex-direction:column;justify-content:center;}
+.form-head{margin-bottom:2.5rem;}
+.form-head h2{font-size:1.8rem;font-weight:700;letter-spacing:-0.03em;margin-bottom:0.4rem;}
+.form-head p{font-size:0.78rem;color:var(--t3);}
+.f-group{margin-bottom:1.1rem;}
+.f-label{display:block;font-size:0.62rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--t4);margin-bottom:0.5rem;}
+.f-input{width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:var(--r);padding:0.8rem 1rem;font-family:var(--font);font-size:0.88rem;color:var(--t1);outline:none;transition:all 0.18s ease;}
+.f-input::placeholder{color:var(--t4);}
+.f-input:focus{border-color:rgba(10,132,255,0.5);background:rgba(10,132,255,0.05);box-shadow:0 0 0 3px rgba(10,132,255,0.1);}
+/* Steps */
+.steps{display:none;background:rgba(255,255,255,0.03);border:1px solid var(--border-dim);border-radius:var(--r);padding:0.75rem 1rem;margin-bottom:1.1rem;}
+.steps.show{display:block;}
+.step{display:flex;align-items:center;gap:0.5rem;font-size:0.68rem;color:var(--t4);padding:0.2rem 0;transition:color 0.2s;}
+.step.done{color:var(--green);}
+.step.run{color:var(--t2);}
+.btn-submit{width:100%;justify-content:center;padding:0.85rem;font-size:0.88rem;margin-top:0.25rem;}
+.err-msg{font-size:0.68rem;color:var(--red);margin-top:0.6rem;display:none;}
+.err-msg.show{display:block;}
+.portal-link{display:block;margin-top:1.5rem;text-align:center;font-size:0.62rem;color:var(--t4);text-decoration:none;padding-top:1rem;border-top:1px solid var(--border-dim);transition:color 0.15s;}
+.portal-link:hover{color:var(--t2);}
+</style>
+</head>
+<body class="page-wrap">
+<div class="login-shell fu">
+  <div class="login-info">
+    <div>
+      <div class="brand-mark">
+        <div class="brand-icon">🛡</div>
+        <div>
+          <div style="font-size:1.1rem;font-weight:700;letter-spacing:0.04em">SENTINEL</div>
+          <div style="font-size:0.62rem;color:var(--t4);letter-spacing:0.06em">INTRUSION DETECTION SYSTEM</div>
+        </div>
+      </div>
+      <div style="font-size:0.88rem;color:var(--t2);line-height:1.7;">
+        Enterprise-grade AI security monitoring with real-time unsupervised anomaly detection, IoT intruder capture, and live threat intelligence.
+      </div>
+      <div class="sys-list">
+        <div class="sys-row"><div class="sys-head">ML Engine</div><div class="sys-val"><span class="dot dot-green"></span>Isolation Forest + DBSCAN + LOF</div></div>
+        <div class="sys-row"><div class="sys-head">IoT Camera</div><div class="sys-val"><span class="dot dot-amber" id="cam-dot"></span><span id="cam-txt">Initializing…</span></div></div>
+        <div class="sys-row"><div class="sys-head">Live Feed</div><div class="sys-val"><span class="dot dot-green"></span>SSE Streaming Active</div></div>
+        <div class="sys-row"><div class="sys-head">Dataset</div><div class="sys-val"><span class="dot dot-green"></span>1,000 labeled events loaded</div></div>
+        <div class="sys-row"><div class="sys-head">Honeypot</div><div class="sys-val"><span class="dot dot-green"></span>Decoy portal online at /portal</div></div>
+      </div>
+    </div>
+    <div class="foot-note">All sessions are recorded and analyzed.<br/>Unauthorized access is a criminal offence under applicable law.</div>
+  </div>
+  <div class="login-form">
+    <div class="form-head">
+      <h2>Admin <span class="grad-blue">Access</span></h2>
+      <p class="t3">Authenticated personnel only · All attempts logged and captured</p>
+    </div>
+    <div class="f-group">
+      <label class="f-label">Username</label>
+      <input id="uname" class="f-input" type="text" placeholder="username" autocomplete="off"/>
+    </div>
+    <div class="f-group">
+      <label class="f-label">Password</label>
+      <input id="pwd" class="f-input" type="password" placeholder="••••••••"/>
+    </div>
+    <div class="steps" id="steps">
+      <div class="step" id="s1"><span class="spin"></span> Extracting behavioral features…</div>
+      <div class="step" id="s2">— Running Isolation Forest…</div>
+      <div class="step" id="s3">— Computing threat score…</div>
+      <div class="step" id="s4">— Verifying credentials…</div>
+    </div>
+    <div class="err-msg" id="err">Authentication failed.</div>
+    <button class="btn btn-primary btn-submit" id="sbtn" onclick="doLogin()"><span id="btxt">Authenticate</span></button>
+    <a href="/portal" class="portal-link">Employee self-service portal ↗</a>
+  </div>
+</div>
+<script>
+setTimeout(()=>{document.getElementById('cam-dot').style.background='var(--green)';document.getElementById('cam-dot').style.boxShadow='0 0 8px rgba(50,215,75,0.6)';document.getElementById('cam-txt').textContent='Online';},1100);
+document.getElementById('pwd').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+const SL=['✓ Features extracted','✓ Isolation Forest scored','✓ Risk score computed','✓ Credentials verified'];
+const SP=['— Running Isolation Forest…','— Computing threat score…','— Verifying credentials…'];
+async function doLogin(){
+  const u=document.getElementById('uname').value.trim(),p=document.getElementById('pwd').value;
+  if(!u||!p)return;
+  const btn=document.getElementById('sbtn');btn.disabled=true;
+  document.getElementById('err').classList.remove('show');
+  document.getElementById('steps').classList.add('show');
+  document.getElementById('btxt').textContent='Analyzing…';
+  for(let i=0;i<4;i++){
+    await delay(520);
+    const el=document.getElementById('s'+(i+1));
+    el.innerHTML=SL[i];el.className='step done';
+    if(i<3){const nx=document.getElementById('s'+(i+2));nx.innerHTML='<span class="spin"></span> '+SP[i];nx.className='step run';}
+  }
+  await delay(280);
+  try{
+    const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(d.status==='ok'){document.getElementById('btxt').textContent='Access Granted ✓';await delay(500);window.location.href=d.redirect;}
+    else{sessionStorage.setItem('threat',JSON.stringify(d));window.location.href=d.redirect;}
+  }catch(e){document.getElementById('err').classList.add('show');document.getElementById('steps').classList.remove('show');btn.disabled=false;document.getElementById('btxt').textContent='Authenticate';}
+}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+</script>
+</body>
+</html>

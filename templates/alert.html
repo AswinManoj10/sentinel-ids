@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SENTINEL — Threat Detected</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}"/>
+<style>
+body { display:flex; flex-direction:column; min-height:100vh; }
+
+.alert-bar {
+  background:var(--rg2); border-bottom:1px solid var(--rb);
+  padding:0.6rem 1.75rem;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.blink { animation:blinkA 0.9s step-start infinite; color:var(--red); }
+@keyframes blinkA { 0%,100%{opacity:1}50%{opacity:0} }
+
+.main { max-width:880px; width:100%; margin:0 auto; padding:2rem 1.75rem 5rem; }
+
+/* Hero card */
+.hero-card {
+  background:var(--g1); backdrop-filter:var(--blur-lg); -webkit-backdrop-filter:var(--blur-lg);
+  border:1px solid var(--rb); border-radius:var(--r4);
+  overflow:hidden; margin-bottom:1.25rem;
+  box-shadow:0 0 60px rgba(255,45,85,0.12), 0 20px 60px rgba(0,0,0,0.5);
+}
+.hero-top {
+  padding:2.5rem 2rem; text-align:center;
+  background:linear-gradient(180deg,rgba(255,45,85,0.08),transparent);
+}
+.threat-chip {
+  display:inline-flex; align-items:center; gap:0.4rem;
+  font-family:var(--mono); font-size:0.65rem; font-weight:700; letter-spacing:0.12em;
+  padding:0.32rem 1.1rem; border-radius:100px;
+  background:var(--gr-rose); color:#fff;
+  margin-bottom:1rem;
+  box-shadow:0 4px 18px rgba(255,45,85,0.4);
+  animation:chipPulse 2.5s ease infinite;
+}
+@keyframes chipPulse { 0%,100%{box-shadow:0 4px 18px rgba(255,45,85,0.38)}50%{box-shadow:0 4px 30px rgba(255,45,85,0.65)} }
+
+.risk-wrap { margin:1.5rem auto; max-width:320px; }
+.risk-big { font-size:4rem; font-weight:900; letter-spacing:-0.05em; line-height:1;
+            background:var(--gr-rose); -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent; background-clip:text; }
+.risk-bar-t { height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; margin-top:0.6rem; }
+.risk-bar-f { height:4px; border-radius:2px; background:var(--gr-rose);
+              width:0%; transition:width 1.8s cubic-bezier(0.4,0,0.2,1);
+              box-shadow:0 0 10px rgba(255,45,85,0.6); }
+
+/* ML strip */
+.ml-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+            background:rgba(255,255,255,0.05); border-top:1px solid rgba(255,255,255,0.06); }
+@media(max-width:600px){.ml-strip{grid-template-columns:repeat(2,1fr);}}
+.ml-cell { background:rgba(3,5,8,0.5); padding:1rem 1.25rem; }
+.ml-k { font-family:var(--mono); font-size:0.58rem; font-weight:700; letter-spacing:0.12em;
+        text-transform:uppercase; color:var(--w4); margin-bottom:0.35rem; }
+.ml-v { font-size:0.92rem; font-weight:700; }
+
+/* Info panels */
+.info-g { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+@media(max-width:640px){.info-g{grid-template-columns:1fr;}}
+.info-p {
+  background:var(--g1); backdrop-filter:var(--blur-md); -webkit-backdrop-filter:var(--blur-md);
+  border:1px solid var(--gb); border-radius:var(--r3); padding:1.35rem;
+}
+.kv { display:flex; flex-direction:column; gap:0.28rem; margin-bottom:0.8rem; }
+.kv:last-child { margin-bottom:0; }
+.kv-k { font-family:var(--mono); font-size:0.58rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--w4); }
+.kv-v { font-size:0.84rem; color:var(--w1); }
+
+/* Snap */
+.snap-frame { width:100%; border-radius:var(--r2); object-fit:cover;
+              max-height:260px; display:block; background:var(--bg2);
+              border:1px solid rgba(255,45,85,0.3); }
+.no-snap { height:150px; display:flex; align-items:center; justify-content:center;
+           background:var(--g0); border-radius:var(--r2); border:1px dashed rgba(255,255,255,0.1);
+           font-size:0.8rem; color:var(--w4); flex-direction:column; gap:0.5rem; }
+
+/* Timeline */
+.tl { display:flex; flex-direction:column; }
+.tl-row { display:flex; gap:0.9rem; }
+.tl-lt { display:flex; flex-direction:column; align-items:center; width:28px; flex-shrink:0; }
+.tl-dot { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; }
+.tl-line { width:1px; flex:1; background:rgba(255,255,255,0.07); margin:3px 0; }
+.tl-row:last-child .tl-line { display:none; }
+.tl-rt { padding-bottom:1.1rem; }
+.tl-name { font-size:0.8rem; font-weight:600; color:var(--w1); margin-bottom:0.18rem; }
+.tl-desc { font-size:0.65rem; color:var(--w4); line-height:1.55; }
+
+.acts { display:flex; gap:0.75rem; flex-wrap:wrap; }
+.acts .btn { flex:1; justify-content:center; min-width:110px; }
+</style>
+</head>
+<body>
+<div class="lbg">
+  <div class="orb orb-a"></div><div class="orb orb-b"></div>
+</div>
+<div class="grid-ov"></div>
+<div class="noise-ov"></div>
+
+<!-- Alert bar -->
+<div class="alert-bar ui">
+  <div style="display:flex;align-items:center;gap:0.5rem;font-family:var(--mono);font-size:0.68rem;font-weight:700;letter-spacing:0.08em;color:var(--red);">
+    <span class="blink">▮</span> SECURITY ALERT — UNAUTHORIZED ACCESS ATTEMPT DETECTED
+  </div>
+  <span style="font-family:var(--mono);font-size:0.62rem;color:var(--w4);" id="ts-live">—</span>
+</div>
+
+<div class="main ui">
+
+  <!-- Hero -->
+  <div class="hero-card fu">
+    <div class="hero-top">
+      <div class="threat-chip" id="t-chip">⚠ CRITICAL THREAT</div>
+      <h1 style="font-size:2.2rem;font-weight:900;letter-spacing:-0.04em;margin-bottom:0.4rem;">
+        Intrusion <span class="gr-red">Detected</span>
+      </h1>
+      <p style="font-size:0.78rem;color:var(--w3);" id="hero-ts">—</p>
+      <div class="risk-wrap">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.4rem;">
+          <span style="font-family:var(--mono);font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);">COMPOSITE RISK</span>
+          <span class="risk-big" id="risk-num">—</span>
+        </div>
+        <div class="risk-bar-t"><div class="risk-bar-f" id="risk-bar"></div></div>
+      </div>
+    </div>
+    <div class="ml-strip">
+      <div class="ml-cell"><div class="ml-k">ML Output</div><div class="ml-v" style="color:var(--amber)" id="ml-label">—</div></div>
+      <div class="ml-cell"><div class="ml-k">Anomaly Score</div><div class="ml-v" style="color:var(--red)" id="ml-score">—</div></div>
+      <div class="ml-cell"><div class="ml-k">Threat Level</div><div class="ml-v" id="ml-threat">—</div></div>
+      <div class="ml-cell"><div class="ml-k">Source</div><div class="ml-v" style="color:var(--violet)" id="ml-src">—</div></div>
+    </div>
+  </div>
+
+  <!-- Info + snapshot -->
+  <div class="info-g fu1">
+    <div class="info-p">
+      <div style="font-family:var(--mono);font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:1rem;">Incident Details</div>
+      <div class="kv"><div class="kv-k">Username</div><div class="kv-v" id="d-user">—</div></div>
+      <div class="kv"><div class="kv-k">Attack Origin</div><div class="kv-v" style="color:var(--red)" id="d-origin">—</div></div>
+      <div class="kv"><div class="kv-k">Timestamp</div><div class="kv-v" id="d-ts">—</div></div>
+      <div class="kv"><div class="kv-k">Attack Vector</div><div class="kv-v">Credential Stuffing / Brute Force</div></div>
+      <div class="kv"><div class="kv-k">Response</div><div class="kv-v">📸 Captured · 🔔 Notified · 🔊 Alert</div></div>
+    </div>
+    <div class="info-p">
+      <div style="font-family:var(--mono);font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:0.85rem;">IoT Intruder Snapshot</div>
+      <div id="snap-area"><div class="no-snap"><span style="font-size:2rem">📷</span><span>Capture in progress…</span></div></div>
+      <div style="margin-top:0.6rem;font-family:var(--mono);font-size:0.62rem;color:var(--w4);" id="snap-note">—</div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="info-p fu2" style="margin-bottom:1.25rem;">
+    <div style="font-family:var(--mono);font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--w4);margin-bottom:1.1rem;">Incident Response Timeline</div>
+    <div class="tl">
+      <div class="tl-row"><div class="tl-lt"><div class="tl-dot" style="background:var(--rg2)">⛔</div><div class="tl-line"></div></div><div class="tl-rt"><div class="tl-name">Failed Login Detected</div><div class="tl-desc">Authentication failure registered in live SSE event stream</div></div></div>
+      <div class="tl-row"><div class="tl-lt"><div class="tl-dot" style="background:var(--ag1)">🤖</div><div class="tl-line"></div></div><div class="tl-rt"><div class="tl-name">ML Models Scored</div><div class="tl-desc">Isolation Forest + LOF evaluated 10-feature behavioral vector</div></div></div>
+      <div class="tl-row"><div class="tl-lt"><div class="tl-dot" style="background:rgba(10,132,255,0.15)">📊</div><div class="tl-line"></div></div><div class="tl-rt"><div class="tl-name">Composite Risk Computed</div><div class="tl-desc">Rule signals + ML anomaly scores fused into 0–100 risk index</div></div></div>
+      <div class="tl-row"><div class="tl-lt"><div class="tl-dot" style="background:var(--gg1)">📸</div><div class="tl-line"></div></div><div class="tl-rt"><div class="tl-name">IoT Camera Triggered</div><div class="tl-desc">Webcam snapshot captured and persisted to outputs/</div></div></div>
+      <div class="tl-row"><div class="tl-lt"><div class="tl-dot" style="background:rgba(191,90,242,0.12)">🔔</div></div><div class="tl-rt"><div class="tl-name">Mobile Alert + Event Logged</div><div class="tl-desc">Pushover notification dispatched · Full record written to threat_logs.jsonl</div></div></div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="acts fu3">
+    <a href="/" class="btn btn-ghost">← Dashboard</a>
+    <a href="/portal" class="btn btn-ghost">↗ Honeypot</a>
+    <a href="/analytics" class="btn btn-ghost">ML Analytics</a>
+    <a href="/" class="btn btn-primary">View Dashboard →</a>
+  </div>
+
+</div>
+
+<script>
+setInterval(() => {
+  document.getElementById('ts-live').textContent = new Date().toLocaleString('en-GB',{hour12:false});
+}, 1000);
+
+const raw = sessionStorage.getItem('threat');
+if (raw) {
+  try {
+    const d = JSON.parse(raw);
+    document.getElementById('d-user').textContent    = d.username  || '—';
+    document.getElementById('d-origin').textContent  = d.origin    || '—';
+    document.getElementById('d-ts').textContent      = d.timestamp || '—';
+    document.getElementById('hero-ts').textContent   = 'Detected: ' + (d.timestamp || '—');
+    document.getElementById('ml-label').textContent  = d.ml_label  || '—';
+    document.getElementById('ml-score').textContent  = (d.ml_score||0) + '%';
+    document.getElementById('ml-src').textContent    = d.source    || 'DIRECT';
+
+    const tl = d.threat || 'LOW';
+    const tc = {CRITICAL:'var(--red)',HIGH:'var(--amber)',MEDIUM:'#FFB830',LOW:'var(--green)'};
+    document.getElementById('ml-threat').textContent  = tl;
+    document.getElementById('ml-threat').style.color  = tc[tl] || 'var(--w2)';
+    document.getElementById('t-chip').textContent     = '⚠ ' + tl + ' THREAT';
+
+    const risk = d.risk_score || 0;
+    document.getElementById('risk-num').textContent = risk + '%';
+    setTimeout(() => { document.getElementById('risk-bar').style.width = risk + '%'; }, 350);
+
+    // Snapshot — try /outputs/ prefix
+    if (d.snapshot) {
+      const fname = (d.snapshot + '').split('/').pop().split('\\').pop();
+      const url = '/outputs/' + fname;
+      document.getElementById('snap-area').innerHTML =
+        `<img class="snap-frame" src="${url}" alt="intruder capture"
+              onerror="this.style.background='#111827';this.style.minHeight='120px'"/>`;
+      document.getElementById('snap-note').textContent = 'Captured: ' + (d.timestamp||'');
+    } else {
+      document.getElementById('snap-area').innerHTML =
+        '<div class="no-snap"><span style="font-size:2rem">📷</span><span>No camera — placeholder stored</span></div>';
+    }
+    sessionStorage.removeItem('threat');
+  } catch(e) { console.warn(e); }
+}
+</script>
+</body>
+</html>
