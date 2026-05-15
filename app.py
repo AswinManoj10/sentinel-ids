@@ -12,6 +12,7 @@ from security.voice_alert import VoiceAlert
 from notifications.notifier import MobileNotifier
 
 app = Flask(__name__)
+snapshot_store = {}
 app.secret_key = "sentinel-open-v4"
 
 detector  = AnomalyDetector()
@@ -71,7 +72,16 @@ def demo_login():
     event, valid, risk, threat, origin, ml_score, ml_label = _process(u, p, ip, ua, "demo")
     if valid:
         return jsonify({"status": "success", "username": u, "risk": risk, "threat": threat})
-    snap = camera.capture(u, risk)
+    browser_snap = d.get("browser_snapshot")
+    if browser_snap and browser_snap.startswith("data:image"):
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_u = "".join(c for c in u if c.isalnum() or c in "-_")[:20] or "unknown"
+        snap_key = f"snap_{ts}_{safe_u}"
+        snapshot_store[snap_key] = browser_snap
+        snap = f"/api/snapshot/{snap_key}"
+    else:
+        snap = camera.capture(u, risk)
     if snap:
         logger.update_last_snapshot(snap)
     locked = attempt >= DEMO_MAX
@@ -94,7 +104,16 @@ def portal_login():
     ua = request.headers.get("User-Agent", "")
     event, _, risk, threat, origin, ml_score, ml_label = _process(u, p, ip, ua, "decoy")
     is_valid = HONEYPOT_USERS.get(u) == p
-    snap = camera.capture(u, risk)
+    browser_snap = d.get("browser_snapshot")
+    if browser_snap and browser_snap.startswith("data:image"):
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_u = "".join(c for c in u if c.isalnum() or c in "-_")[:20] or "unknown"
+        snap_key = f"snap_{ts}_{safe_u}"
+        snapshot_store[snap_key] = browser_snap
+        snap = f"/api/snapshot/{snap_key}"
+    else:
+        snap = camera.capture(u, risk)
     if snap:
         logger.update_last_snapshot(snap)
     if is_valid:
@@ -138,8 +157,16 @@ def delete_snapshot(filename):
     return jsonify({"deleted": True})
 
 # ── API ───────────────────────────────────────────────────────────────────────
-@app.route("/api/stats")
-def api_stats():     return jsonify(logger.get_stats())
+@app.route("/api/snapshot/<key>")
+def serve_snapshot(key):
+    data = snapshot_store.get(key)
+    if not data:
+        return "Not found", 404
+    header, encoded = data.split(",", 1)
+    import base64
+    img_bytes = base64.b64decode(encoded)
+    mime = header.split(":")[1].split(";")[0]
+    return Response(img_bytes, mimetype=mime)
 
 @app.route("/api/recent-events")
 def api_recent():    return jsonify(logger.get_recent(40))
