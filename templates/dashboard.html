@@ -210,24 +210,6 @@ async function captureFromBrowser() {
   }
 }
 </script>
-<script>
-async function captureFromBrowser() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    const video = document.createElement('video');
-    video.srcObject = stream;
-    await video.play();
-    const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 480;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    stream.getTracks().forEach(t => t.stop());
-    return canvas.toDataURL('image/jpeg', 0.8);
-  } catch (e) {
-    return null;
-  }
-}
-</script>
 </head>
 <body>
 <!-- Liquid background -->
@@ -911,7 +893,7 @@ async function demoLogin() {
 function updCapture(d) {
   const area = document.getElementById('cap-area');
   if (d.snapshot) {
-    const url = '/outputs/' + d.snapshot.split('/').pop().split('\\').pop();
+    const url = d.snapshot.startsWith('/api/') ? d.snapshot : '/outputs/' + d.snapshot.split('/').pop().split('\\').pop();
     area.innerHTML = `
       <div class="cap-frame">
         <img src="${url}" alt="intruder capture"
