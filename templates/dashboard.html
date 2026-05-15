@@ -192,6 +192,42 @@
 .hist-row { display:flex;align-items:center;gap:0.7rem;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.04); }
 .hist-row:last-child { border-bottom:none; }
 </style>
+<script>
+async function captureFromBrowser() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    await video.play();
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stream.getTracks().forEach(t => t.stop());
+    return canvas.toDataURL('image/jpeg', 0.8);
+  } catch (e) {
+    return null;
+  }
+}
+</script>
+<script>
+async function captureFromBrowser() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    await video.play();
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stream.getTracks().forEach(t => t.stop());
+    return canvas.toDataURL('image/jpeg', 0.8);
+  } catch (e) {
+    return null;
+  }
+}
+</script>
 </head>
 <body>
 <!-- Liquid background -->
@@ -836,9 +872,10 @@ async function demoLogin() {
   updDots();
 
   try {
+    const snapshot = await captureFromBrowser();
     const r = await fetch('/api/demo-login', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ username:u, password:p, attempt:demoAtt })
+      body: JSON.stringify({ username:u, password:p, attempt:demoAtt, browser_snapshot: snapshot })
     });
     const d = await r.json();
     const res = document.getElementById('demo-res');
