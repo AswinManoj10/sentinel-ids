@@ -13,6 +13,7 @@ from notifications.notifier import MobileNotifier
 
 app = Flask(__name__)
 snapshot_store = {}
+snapshot_meta = {}
 app.secret_key = "sentinel-open-v4"
 
 detector  = AnomalyDetector()
@@ -74,11 +75,19 @@ def demo_login():
         return jsonify({"status": "success", "username": u, "risk": risk, "threat": threat})
     browser_snap = d.get("browser_snapshot")
     if browser_snap and browser_snap.startswith("data:image"):
-        from datetime import datetime
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_u = "".join(c for c in u if c.isalnum() or c in "-_")[:20] or "unknown"
         snap_key = f"snap_{ts}_{safe_u}"
         snapshot_store[snap_key] = browser_snap
+        snapshot_meta[snap_key] = {
+            "file": snap_key,
+            "url": f"/api/snapshot/{snap_key}",
+            "username": u,
+            "risk": risk,
+            "threat": threat,
+            "timestamp": datetime.now().isoformat(),
+            "source": "demo"
+        }
         snap = f"/api/snapshot/{snap_key}"
     else:
         snap = camera.capture(u, risk)
@@ -106,11 +115,19 @@ def portal_login():
     is_valid = HONEYPOT_USERS.get(u) == p
     browser_snap = d.get("browser_snapshot")
     if browser_snap and browser_snap.startswith("data:image"):
-        from datetime import datetime
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_u = "".join(c for c in u if c.isalnum() or c in "-_")[:20] or "unknown"
         snap_key = f"snap_{ts}_{safe_u}"
         snapshot_store[snap_key] = browser_snap
+        snapshot_meta[snap_key] = {
+            "file": snap_key,
+            "url": f"/api/snapshot/{snap_key}",
+            "username": u,
+            "risk": risk,
+            "threat": threat,
+            "timestamp": datetime.now().isoformat(),
+            "source": "honeypot"
+        }
         snap = f"/api/snapshot/{snap_key}"
     else:
         snap = camera.capture(u, risk)
@@ -182,20 +199,9 @@ def api_cluster():   return jsonify(detector.get_cluster_data())
 
 @app.route("/api/snapshots")
 def api_snaps():
-    snaps = camera.list_snapshots()
-    memory_snaps = []
-    for key, data in snapshot_store.items():
-        parts = key.replace("snap_", "").split("_")
-        ts = parts[0] + "_" + parts[1] if len(parts) >= 2 else ""
-        uname = "_".join(parts[2:]) if len(parts) > 2 else "unknown"
-        memory_snaps.append({
-            "file": key,
-            "url": f"/api/snapshot/{key}",
-            "username": uname,
-            "risk": 50,
-            "timestamp": ts
-        })
-    return jsonify(memory_snaps + snaps)
+    memory_snaps = list(snapshot_meta.values())
+    disk_snaps = camera.list_snapshots()
+    return jsonify(memory_snaps + disk_snaps)
 
 @app.route("/outputs/<path:filename>")
 def serve_output(filename):
