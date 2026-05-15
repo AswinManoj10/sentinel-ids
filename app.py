@@ -181,7 +181,21 @@ def api_timeline():  return jsonify(logger.get_timeline())
 def api_cluster():   return jsonify(detector.get_cluster_data())
 
 @app.route("/api/snapshots")
-def api_snaps():     return jsonify(camera.list_snapshots())
+def api_snaps():
+    snaps = camera.list_snapshots()
+    memory_snaps = []
+    for key, data in snapshot_store.items():
+        parts = key.replace("snap_", "").split("_")
+        ts = parts[0] + "_" + parts[1] if len(parts) >= 2 else ""
+        uname = "_".join(parts[2:]) if len(parts) > 2 else "unknown"
+        memory_snaps.append({
+            "file": key,
+            "url": f"/api/snapshot/{key}",
+            "username": uname,
+            "risk": 50,
+            "timestamp": ts
+        })
+    return jsonify(memory_snaps + snaps)
 
 @app.route("/outputs/<path:filename>")
 def serve_output(filename):
