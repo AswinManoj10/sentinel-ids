@@ -123,7 +123,9 @@ async function portalLogin() {
   document.getElementById('sl2').textContent = 'Checking access rights…';
   await delay(550);
   try {
-    const r = await fetch('/portal/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p, browser_snapshot: await captureFromBrowser()}) });
+    const r = await fetch('/portal/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p, browser_snapshot: await captureFromBrowser()}) });
+    const d = await r.json();
+    if (d.status === 'success') {
       document.getElementById('sl2').className = 's-ok';
       document.getElementById('sl2').textContent = '✓ Access granted';
       await delay(400);
@@ -152,7 +154,6 @@ function showSuccess(username) {
 }
 function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
 </script>
-
 <!-- ── Success Banner ──────────────────────────────────────────────────────── -->
 <div id="success-banner" style="display:none;position:fixed;inset:0;background:#F0FDF4;flex-direction:column;align-items:center;justify-content:center;z-index:100;padding:2rem;">
   <div style="background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,0.12);padding:3rem 2.5rem;max-width:440px;width:100%;text-align:center;">
